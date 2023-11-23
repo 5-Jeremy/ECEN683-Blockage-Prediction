@@ -7,7 +7,7 @@ import random
 def get_file_num(filename):
 		return int(re.findall(r'\d+', filename)[0])
 
-# Load data for a specific scenario, perform preprocessing, and divide into train and test sets
+# Old
 def preprocess_data(scenario_num, pred_length):
 	# Number of samples in the train and test datasets for each of the scenarios
 	scen_20_train_len = 44255 #64254
@@ -72,7 +72,7 @@ def preprocess_data(scenario_num, pred_length):
 	test_targets = torch.from_numpy(test_targets)
 
 	return [train_data, train_targets, test_data, test_targets]
-
+# Old
 def preprocess_data_2(scenario_num, pred_length):
 	# Number of samples in the train and test datasets for each of the scenarios
 	scen_20_train_len = 44255 #64254
@@ -193,10 +193,10 @@ def split_data(samples, labels, Tobs, Tp):
 	no_blk_obs_target_pairs = [no_blk_candidate_pairs[i] for i in choices]
 
 	return [blk_obs_target_pairs, no_blk_obs_target_pairs]
-
-def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio):
+# This is the version which is currently used
+def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=True, augment=False):
 	# Get the appropriate directory to pull data from
-	data_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Prototyping\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
+	data_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Repo\\ECEN683-Blockage-Prediction\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
 	files = os.listdir(data_dir)
 
 	# Load the mmwave samples
@@ -216,7 +216,7 @@ def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio):
 	full_data = (full_data - data_mean)/data_stdev
 
 	# Get the labels
-	labels_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Prototyping\\scenario{}\\unit1\\label_data".format(scenario_num)
+	labels_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Repo\\ECEN683-Blockage-Prediction\\scenario{}\\unit1\\label_data".format(scenario_num)
 	files = os.listdir(labels_dir)
 
 	labels = []
@@ -236,11 +236,36 @@ def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio):
 	no_blk_train = no_blk[:test_start_no_blk]
 	no_blk_test = no_blk[test_start_no_blk:]
 
-	
-	# Randomize the order of the data before returning it
 	train_data = blk_train + no_blk_train
-	random.shuffle(train_data)
 	test_data = blk_test + no_blk_test
-	random.shuffle(test_data)
+
+	# If requested, perform data augmentation to increase the number of samples
+	if augment:
+		train_data = augment_data(train_data)
+		test_data = augment_data(test_data)
+	
+	# If requested, randomize the order of the data before returning it
+	if shuffle:
+		random.shuffle(train_data)
+		random.shuffle(test_data)
 
 	return [train_data, test_data]
+
+def get_all_outdoor_data(pred_length, obs_length, train_ratio, augment=False):
+	scenarios = [17, 18, 20, 21]
+	full_train_data = []
+	full_test_data = []
+	for scenario_num in scenarios:
+		train_data, test_data = preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=False, augment=augment)
+		full_train_data = full_train_data + train_data
+		full_test_data = full_test_data + test_data
+	random.shuffle(full_train_data)
+	random.shuffle(full_test_data)
+	return [full_train_data, full_test_data]
+# Augment data by reversing each of the mmwave data vectors
+def augment_data(data):
+	augmented_data = []
+	for sample in data:
+		augmented_data.append([sample[0], sample[1]])
+		augmented_data.append([np.flip(sample[0], axis=0), sample[1]])
+	return augmented_data
