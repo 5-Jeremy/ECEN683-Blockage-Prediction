@@ -182,10 +182,10 @@ def split_data(samples, labels, Tobs, Tp):
 	
 	# Generate a list of <observation sequence, label> pairings without blockages
 	no_blk_candidate_pairs = []
-	# On each iteration, the index i points to the last observation sample of the potential set of samples
+	# On each iteration, the index i points to the sample after the last observation sample
 	for i in range(Tobs,samples.shape[0] - Tp):
-		if np.sum(labels[i-Tobs:i+Tp+1]) == 0:
-			obs = samples[i-Tobs:i+1]
+		if np.sum(labels[i-Tobs:i+Tp]) == 0:
+			obs = samples[i-Tobs:i]
 			no_blk_candidate_pairs.append([obs, 0])
 
 	# Uniformly sample the pairings without blockages to get a subset matching the number of pairings with blockages
@@ -242,7 +242,6 @@ def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffl
 	# If requested, perform data augmentation to increase the number of samples
 	if augment:
 		train_data = augment_data(train_data)
-		test_data = augment_data(test_data)
 	
 	# If requested, randomize the order of the data before returning it
 	if shuffle:
@@ -262,10 +261,45 @@ def get_all_outdoor_data(pred_length, obs_length, train_ratio, augment=False):
 	random.shuffle(full_train_data)
 	random.shuffle(full_test_data)
 	return [full_train_data, full_test_data]
+
+def get_all_outdoor_data_batched(pred_length, obs_length, train_ratio, batch_size, augment=False):
+	full_train_data, full_test_data = get_all_outdoor_data(pred_length, obs_length, train_ratio, augment=augment)
+
+	num_full_train_batches = len(full_train_data)//batch_size
+	num_full_test_batches = len(full_test_data)//batch_size
+
+	train_batches = []
+	for i in range(num_full_train_batches):
+		batch_data = full_train_data[i*batch_size:i*batch_size + batch_size]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		train_batches.append([batch_observations, batch_labels])
+	if len(full_train_data) % batch_size != 0:
+		batch_data = full_train_data[num_full_train_batches*batch_size:]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		train_batches.append([batch_observations, batch_labels])
+
+	test_batches = []
+	for i in range(num_full_test_batches):
+		batch_data = full_test_data[i*batch_size:i*batch_size + batch_size]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		test_batches.append([batch_observations, batch_labels])
+	if len(full_test_data) % batch_size != 0:
+		batch_data = full_test_data[num_full_test_batches*batch_size:]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		test_batches.append([batch_observations, batch_labels])
+
+	return [train_batches, test_batches]
+
+
 # Augment data by reversing each of the mmwave data vectors
 def augment_data(data):
 	augmented_data = []
 	for sample in data:
 		augmented_data.append([sample[0], sample[1]])
-		augmented_data.append([np.flip(sample[0], axis=0), sample[1]])
+		# I need to use .copy() here to avoid an error about negative strides
+		augmented_data.append([np.flip(sample[0], axis=0).copy(), sample[1]])
 	return augmented_data
