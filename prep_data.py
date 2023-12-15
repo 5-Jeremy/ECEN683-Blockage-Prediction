@@ -7,6 +7,14 @@ import random
 def get_file_num(filename):
 		return int(re.findall(r'\d+', filename)[0])
 
+def load_samples_from_files(data_dir):
+	samples = []
+	files = os.listdir(data_dir)
+	for file in sorted(files, key=get_file_num):
+		data = np.loadtxt(data_dir + '\\' + file)
+		samples.append(data)
+	return np.row_stack(samples)
+
 def remove_center_beams(data, scenario_num=0):
 	# If requested, remove the 10 center beams
 	# if remove_center:
@@ -38,6 +46,12 @@ def get_center_beams_indx(scenario_num=0):
 		return list(range(25,35))
 	else:
 		raise Exception("Invalid scenario number")
+
+def get_statistics_from_matrix(data):
+	total_mean = np.sum(data)/(data.shape[0] * data.shape[1])
+	# This is the population standard deviation
+	total_stdev = np.linalg.norm(data - total_mean)/np.sqrt(data.shape[0] * data.shape[1])
+	return total_mean, total_stdev
 
 def split_data(samples, labels, Tobs, Tp):
 	blockage_points = np.where(labels == 1)[0]
@@ -76,7 +90,63 @@ def split_data(samples, labels, Tobs, Tp):
 	no_blk_obs_target_pairs = [no_blk_candidate_pairs[i] for i in choices]
 
 	return [blk_obs_target_pairs, no_blk_obs_target_pairs]
-# This is the version which is currently used
+
+# This is the function now used for getting the train and test data
+def preprocess_data_main(pred_length, obs_length, train_ratio, batch_size, augment=False, remove_center=False, normalize_center_separately=True, shuffle=False):
+	# For each scenario:
+	# 1. Load the mmwave samples into a matrix (note the number of samples)
+	# 2. Remove the center if desired
+	# 3. Get the labels
+	# Then with all the data:
+	# 1. Normalize the data jointly (possibly concatenate into a single matrix)
+	# 2. Split the data
+	# 3. Divide into train and test data
+	# 4. If requested, perform data augmentation to increase the number of samples
+	# 5. If requested, randomize the order of the data before returning it
+	# 6. Batch the data
+	scenarios = [17, 18, 19, 20, 21]
+	all_data = []
+	all_center_data = []
+	all_labels = []
+	scenario_num_samples = []
+	for scenario_num in scenarios:
+		# Get the appropriate directory to pull data from
+		data_dir = os.getcwd() + "\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
+		# Load the mmwave samples as vectors
+		scenario_data = load_samples_from_files(data_dir)
+		# Concatenate the vectors into a matrix
+		scenario_data = np.row_stack(scenario_data)
+		# If requested, remove the 10 beams with the highest power
+		if remove_center:
+			scenario_data = remove_center_beams(scenario_data, scenario_num=scenario_num)
+		elif normalize_center_separately:
+			all_center_data.append(get_center_beams(scenario_data, scenario_num=scenario_num))
+		all_data.append(scenario_data)
+		# Keep track of the number of samples in each scenario
+		scenario_num_samples.append(scenario_data.shape[0])
+		#######################################################################################
+		# Load the target labels
+		labels_dir = os.getcwd() + "\\scenario{}\\unit1\\label_data".format(scenario_num)
+		scenario_labels = load_samples_from_files(labels_dir)
+		# Convert the labels to a column vector
+		scenario_labels = np.expand_dims(np.array(scenario_labels), 1)
+		all_labels.append(scenario_labels)
+	
+	if not remove_center and normalize_center_separately:
+		# Find the overall statistics for the center beams and the non-center beams separately
+		center_mean, center_stdev = get_statistics_from_matrix(np.column_stack(all_center_data))
+		non_center_mean, non_center_stdev = get_statistics_from_matrix(remove_center_beams(scenario_data, scenario_num=scenario_num))
+	else:
+		# Find the overall statistics
+		mean, stdev = get_statistics_from_matrix(np.row_stack(all_data))
+
+	# Perform the normalization
+	for i, ns in enumerate(scenario_num_samples):
+		
+
+###########################################################################################################################################
+# The functions below this section are no longer used
+###########################################################################################################################################
 def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=True, augment=False, remove_center=False, joint_normalize=True):
 	# Get the appropriate directory to pull data from
 	data_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Repo\\ECEN683-Blockage-Prediction\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
