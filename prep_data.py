@@ -7,154 +7,37 @@ import random
 def get_file_num(filename):
 		return int(re.findall(r'\d+', filename)[0])
 
-# Old
-def preprocess_data(scenario_num, pred_length):
-	# Number of samples in the train and test datasets for each of the scenarios
-	scen_20_train_len = 44255 #64254
-	scen_20_test_len = 64254 - 44255 - 1 #70837 - 64254
-	scen_17_train_len = 65000
-	scen_17_test_len = 5000
+def remove_center_beams(data, scenario_num=0):
+	# If requested, remove the 10 center beams
+	# if remove_center:
+	# 	new_data = np.delete(data, list(range(28,38)), axis=1)
 
-	scenario_map = {17:[scen_17_train_len, scen_17_test_len], 20:[scen_20_train_len, scen_20_test_len]}
+	if scenario_num == 17:
+		new_data = np.delete(data, list(range(27,37)), axis=1)
+	elif scenario_num in [18, 19]:
+		new_data = np.delete(data, list(range(24,34)), axis=1)
+	elif scenario_num in [20, 21]:
+		new_data = np.delete(data, list(range(25,35)), axis=1)
+	return new_data
 
-	# Get the appropriate directory to pull data from
-	data_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Prototyping\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
-	files = os.listdir(data_dir)
+def get_center_beams(data, scenario_num=0):
+	if scenario_num == 17:
+		new_data = data[:,27:37]
+	elif scenario_num in [18, 19]:
+		new_data = data[:,24:34]
+	elif scenario_num in [20, 21]:
+		new_data = data[:,25:35]
+	return new_data
 
-	# Load the mmwave samples
-	full_data = []
-	for file in sorted(files, key=get_file_num):
-		data = np.loadtxt(data_dir + '\\' + file)
-		full_data.append(data)
-	full_data = np.row_stack(full_data)
-	# print(full_data.shape)
-
-	observation_size = full_data.shape[1]
-	full_len = full_data.shape[0]
-
-	# Normalize the data
-	data_mean = np.sum(full_data)/(observation_size * full_len)
-	data_stdev = np.linalg.norm(full_data)/np.sqrt(observation_size * full_len)
-	full_data = (full_data - data_mean)/data_stdev
-
-	# Calculate the number of samples available for the train and test sets, adjusting based on the prediction length
-	total_train_observations = scenario_map[scenario_num][0]
-	total_test_observations = scenario_map[scenario_num][1] - pred_length
-
-	# Split into train and test data
-	train_data = np.zeros((1, total_train_observations, observation_size), dtype=np.float32)
-	test_data = np.zeros((1, total_test_observations, observation_size), dtype=np.float32)
-	train_data[0,:,:] = full_data[:total_train_observations,:]
-	test_data[0,:,:] = full_data[total_train_observations:-(pred_length+1),:]
-
-	train_len = total_train_observations
-	test_len = total_test_observations - pred_length
-
-	# Get the target predictions
-	labels_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Prototyping\\scenario{}\\unit1\\label_data".format(scenario_num)
-	files = os.listdir(labels_dir)
-
-	labels = []
-	for file in sorted(files, key=get_file_num):
-		label = np.loadtxt(labels_dir + '\\' + file)
-		labels.append(label)
-	targets = np.expand_dims(np.array(labels), 1)
-
-	train_targets = targets[pred_length:train_len+pred_length]
-	test_targets = targets[train_len+pred_length:]
-
-	# print(total_train_observations, train_targets.shape)
-	# print(total_test_observations, test_targets.shape)
-
-	train_data = torch.from_numpy(train_data)
-	train_targets = torch.from_numpy(train_targets)
-	test_data = torch.from_numpy(test_data)
-	test_targets = torch.from_numpy(test_targets)
-
-	return [train_data, train_targets, test_data, test_targets]
-# Old
-def preprocess_data_2(scenario_num, pred_length):
-	# Number of samples in the train and test datasets for each of the scenarios
-	scen_20_train_len = 44255 #64254
-	scen_20_test_len = 64254 - 44255 - 1 #70837 - 64254
-	scen_17_train_len = 65000
-	scen_17_test_len = 5000
-
-	scenario_map = {17:[scen_17_train_len, scen_17_test_len], 20:[scen_20_train_len, scen_20_test_len]}
-
-	# Get the appropriate directory to pull data from
-	data_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Prototyping\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
-	files = os.listdir(data_dir)
-
-	# Load the mmwave samples
-	full_data = []
-	for file in sorted(files, key=get_file_num):
-		data = np.loadtxt(data_dir + '\\' + file)
-		full_data.append(data)
-	full_data = np.row_stack(full_data)
-	# print(full_data.shape)
-
-	observation_size = full_data.shape[1]
-	full_len = full_data.shape[0]
-
-	# Normalize the data
-	data_mean = np.sum(full_data)/(observation_size * full_len)
-	data_stdev = np.linalg.norm(full_data)/np.sqrt(observation_size * full_len)
-	full_data = (full_data - data_mean)/data_stdev
-
-	# Calculate the number of samples available for the train and test sets, adjusting based on the prediction length
-	total_train_observations = scenario_map[scenario_num][0]
-	total_test_observations = scenario_map[scenario_num][1] - pred_length
-
-	# Split into train and test data
-	train_data = np.zeros((1, total_train_observations, observation_size), dtype=np.float32)
-	test_data = np.zeros((1, total_test_observations, observation_size), dtype=np.float32)
-	train_data[0,:,:] = full_data[:total_train_observations,:]
-	test_data[0,:,:] = full_data[total_train_observations:-(pred_length+1),:]
-
-	train_len = total_train_observations
-	test_len = total_test_observations - pred_length
-
-	# Get the target predictions
-	labels_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Prototyping\\scenario{}\\unit1\\label_data".format(scenario_num)
-	files = os.listdir(labels_dir)
-
-	labels = []
-	for file in sorted(files, key=get_file_num):
-		label = np.loadtxt(labels_dir + '\\' + file)
-		labels.append(label)
-	labels = np.expand_dims(np.array(labels), 1)
-
-	# Get the actual prediction targets
-	targets = []
-	for i in range(labels.shape[0]):
-		if np.sum(labels[i:i+pred_length+1]) > 0:
-			targets.append(1)
-		else:
-			targets.append(0)
-	targets = np.expand_dims(np.array(targets), 1)
-
-	blockage_points = np.where(labels == 1)[0]
-	# Discards the data points where a blockage is in effect
-	# If we are going to use this, we need to so it before splitting into train and test sets
-	# targets = np.delete(targets,blockage_points,0)
-
-	# plt.plot(labels[75:200])
-	# plt.plot(0.99*targets[75:200])
-	# plt.show()
-
-	train_targets = targets[pred_length:train_len+pred_length]
-	test_targets = targets[train_len+pred_length:]
-
-	train_data = torch.from_numpy(train_data)
-	train_targets = torch.from_numpy(train_targets)
-	test_data = torch.from_numpy(test_data)
-	test_targets = torch.from_numpy(test_targets)
-
-	train_blockage_points = blockage_points[blockage_points < train_len]
-	test_blockage_points = blockage_points[blockage_points >= train_len]
-
-	return [train_data, train_targets, test_data, test_targets, train_blockage_points, test_blockage_points]
+def get_center_beams_indx(scenario_num=0):
+	if scenario_num == 17:
+		return list(range(27,37))
+	elif scenario_num in [18, 19]:
+		return list(range(24,34))
+	elif scenario_num in [20, 21]:
+		return list(range(25,35))
+	else:
+		raise Exception("Invalid scenario number")
 
 def split_data(samples, labels, Tobs, Tp):
 	blockage_points = np.where(labels == 1)[0]
@@ -177,7 +60,7 @@ def split_data(samples, labels, Tobs, Tp):
 			# Make sure the observation samples do not contain blockages
 			if np.sum(labels[bsp - (Tobs + j):bsp]) > 0:
 				continue
-			obs = samples[bsp - (Tobs + j):bsp]
+			obs = samples[bsp - (Tobs + j):bsp - j]
 			blk_obs_target_pairs.append([obs, 1])
 	
 	# Generate a list of <observation sequence, label> pairings without blockages
@@ -194,7 +77,7 @@ def split_data(samples, labels, Tobs, Tp):
 
 	return [blk_obs_target_pairs, no_blk_obs_target_pairs]
 # This is the version which is currently used
-def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=True, augment=False):
+def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=True, augment=False, remove_center=False, joint_normalize=True):
 	# Get the appropriate directory to pull data from
 	data_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Repo\\ECEN683-Blockage-Prediction\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
 	files = os.listdir(data_dir)
@@ -205,15 +88,36 @@ def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffl
 		data = np.loadtxt(data_dir + '\\' + file)
 		full_data.append(data)
 	full_data = np.row_stack(full_data)
-	# print(full_data.shape)
+
+	if remove_center:
+		full_data = remove_center_beams(full_data, scenario_num=scenario_num)
 
 	observation_size = full_data.shape[1]
 	full_len = full_data.shape[0]
 
 	# Normalize the data
-	data_mean = np.sum(full_data)/(observation_size * full_len)
-	data_stdev = np.linalg.norm(full_data)/np.sqrt(observation_size * full_len)
-	full_data = (full_data - data_mean)/data_stdev
+	if joint_normalize:
+		if remove_center:
+			# This is with the old method where we remove beams 28 to 37
+			# This will not work if the seed changes
+			data_mean = 0.017562789572373498
+			data_stdev = 0.016296896041679495
+			full_data = (full_data - data_mean)/data_stdev
+		else:
+			# First normalize the center beams to have mean 0 and standard deviation 1
+			center = get_center_beams(full_data, scenario_num=scenario_num)
+			center_mean, center_stdev = get_full_data_statistics(center, 10)
+			full_data[:,get_center_beams_indx(scenario_num=scenario_num)] = (center - center_mean)/center_stdev
+			# Then normalize the non-center beams to have mean 0 and standard deviation 1
+			center_removed = remove_center_beams(full_data, scenario_num=scenario_num)
+			center_removed_mean, center_removed_stdev = get_full_data_statistics(center_removed, observation_size - 10)
+			full_data[:,list(set(range(observation_size)) - set(get_center_beams_indx(scenario_num=scenario_num)))] = (center_removed - center_removed_mean)/center_removed_stdev
+	else :
+		data_mean = np.sum(full_data)/(observation_size * full_len)
+		# data_stdev = np.linalg.norm(full_data)/np.sqrt(observation_size * full_len)
+		data_stdev = np.linalg.norm(full_data - data_mean)/np.sqrt(observation_size * full_len)
+		full_data = (full_data - data_mean)/data_stdev
+	
 
 	# Get the labels
 	labels_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Repo\\ECEN683-Blockage-Prediction\\scenario{}\\unit1\\label_data".format(scenario_num)
@@ -250,20 +154,56 @@ def preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffl
 
 	return [train_data, test_data]
 
-def get_all_outdoor_data(pred_length, obs_length, train_ratio, augment=False):
-	scenarios = [17, 18, 20, 21]
+def preprocess_data_batched(scenario_num, pred_length, obs_length, train_ratio, batch_size, shuffle=True, augment=False, remove_center=False, joint_normalize=True):
+	train_data, test_data = preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=shuffle, augment=augment, remove_center=remove_center, joint_normalize=joint_normalize)
+
+	num_train_batches = len(train_data)//batch_size
+	num_test_batches = len(test_data)//batch_size
+
+	train_batches = []
+	for i in range(num_train_batches):
+		batch_data = train_data[i*batch_size:i*batch_size + batch_size]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		train_batches.append([batch_observations, batch_labels])
+	if len(train_data) % batch_size != 0:
+		batch_data = train_data[num_train_batches*batch_size:]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		train_batches.append([batch_observations, batch_labels])
+
+	test_batches = []
+	for i in range(num_test_batches):
+		batch_data = test_data[i*batch_size:i*batch_size + batch_size]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		test_batches.append([batch_observations, batch_labels])
+	if len(test_data) % batch_size != 0:
+		batch_data = test_data[num_test_batches*batch_size:]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		test_batches.append([batch_observations, batch_labels])
+
+	return [train_batches, test_batches, len(train_data), len(test_data)]
+
+def get_all_outdoor_data(pred_length, obs_length, train_ratio, augment=False, remove_center=False, joint_normalize=True, repeat_samples=False):
+	scenarios = [17, 18, 19, 20, 21]
 	full_train_data = []
 	full_test_data = []
 	for scenario_num in scenarios:
-		train_data, test_data = preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=False, augment=augment)
+		train_data, test_data = preprocess_data_3(scenario_num, pred_length, obs_length, train_ratio, shuffle=False, augment=augment, remove_center=remove_center, joint_normalize=joint_normalize)
 		full_train_data = full_train_data + train_data
+		# Add some of the data an extra time for certain scenarios so that they are less underrepresented
+		if repeat_samples and (scenario_num == 20 or scenario_num == 21):
+			print("Repeating samples for scenario {}".format(scenario_num))
+			full_train_data = full_train_data + train_data
 		full_test_data = full_test_data + test_data
 	random.shuffle(full_train_data)
 	random.shuffle(full_test_data)
 	return [full_train_data, full_test_data]
 
-def get_all_outdoor_data_batched(pred_length, obs_length, train_ratio, batch_size, augment=False):
-	full_train_data, full_test_data = get_all_outdoor_data(pred_length, obs_length, train_ratio, augment=augment)
+def get_all_outdoor_data_batched(pred_length, obs_length, train_ratio, batch_size, augment=False, remove_center=False, joint_normalize=True, repeat_samples=False):
+	full_train_data, full_test_data = get_all_outdoor_data(pred_length, obs_length, train_ratio, augment=augment, remove_center=remove_center, joint_normalize=joint_normalize, repeat_samples=repeat_samples)
 
 	num_full_train_batches = len(full_train_data)//batch_size
 	num_full_test_batches = len(full_test_data)//batch_size
@@ -292,8 +232,7 @@ def get_all_outdoor_data_batched(pred_length, obs_length, train_ratio, batch_siz
 		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
 		test_batches.append([batch_observations, batch_labels])
 
-	return [train_batches, test_batches]
-
+	return [train_batches, test_batches, len(full_train_data), len(full_test_data)]
 
 # Augment data by reversing each of the mmwave data vectors
 def augment_data(data):
@@ -303,3 +242,103 @@ def augment_data(data):
 		# I need to use .copy() here to avoid an error about negative strides
 		augmented_data.append([np.flip(sample[0], axis=0).copy(), sample[1]])
 	return augmented_data
+
+# all_data is an array containing all the data concatenated together
+def get_full_data_statistics(all_data, observation_size):
+	total_mean = np.sum(all_data)/(observation_size * all_data.shape[0])
+	# This is the population standard deviation
+	total_stdev = np.linalg.norm(all_data - total_mean)/np.sqrt(observation_size * all_data.shape[0])
+	return total_mean, total_stdev
+
+# This is incorrect; the data is not shuffled before being split into train and test sets
+def get_all_data_joint_normalized(pred_length, obs_length, train_ratio, augment=False, remove_center=False):
+	scenarios = [17, 18, 19, 20, 21]
+	all_data = []
+	for scenario_num in scenarios:
+		# Get the appropriate directory to pull data from
+		data_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Repo\\ECEN683-Blockage-Prediction\\scenario{}\\unit1\\mmWave_data".format(scenario_num)
+		files = os.listdir(data_dir)
+		# Load the mmwave samples
+		full_data = []
+		for file in sorted(files, key=get_file_num):
+			data = np.loadtxt(data_dir + '\\' + file)
+			full_data.append(data)
+		full_data = np.row_stack(full_data)
+		full_data = remove_center_beams(full_data, scenario_num=scenario_num)
+		all_data.append(full_data)
+	observation_size = all_data[0].shape[1]
+	all_data_matrix = np.row_stack(all_data)
+	data_mean, data_stdev = get_full_data_statistics(all_data_matrix, observation_size)
+	# print("Data mean: {}".format(data_mean))
+	# print("Data stdev: {}".format(data_stdev))
+	# Normalize the separate data sets using the statistics from the combined data set
+	all_data = [(data - data_mean)/data_stdev for data in all_data]
+
+	# Get the labels
+	all_labels = []
+	for scenario_num in scenarios:
+		labels_dir = "C:\\Users\\jcarl\\Desktop\\ECEN 683\\Project Repo\\ECEN683-Blockage-Prediction\\scenario{}\\unit1\\label_data".format(scenario_num)
+		files = os.listdir(labels_dir)
+		labels = []
+		for file in sorted(files, key=get_file_num):
+			label = np.loadtxt(labels_dir + '\\' + file)
+			labels.append(label)
+		labels = np.expand_dims(np.array(labels), 1)
+		all_labels.append(labels)
+
+	# Get the split data
+	all_train_data = []
+	all_test_data = []
+	for i in range(len(scenarios)):
+		# Get the split data
+		blk, no_blk = split_data(all_data[i], all_labels[i], obs_length, pred_length)
+		# Divide into train and test data
+		test_start_blk = (int)(np.floor(len(blk)*train_ratio))
+		blk_train = blk[:test_start_blk]
+		blk_test = blk[test_start_blk:]
+		test_start_no_blk = (int)(np.floor(len(no_blk)*train_ratio))
+		no_blk_train = no_blk[:test_start_no_blk]
+		no_blk_test = no_blk[test_start_no_blk:]
+		# Combine the samples with and without blockages
+		train_data = blk_train + no_blk_train
+		test_data = blk_test + no_blk_test
+		# If requested, perform data augmentation to increase the number of samples
+		if augment:
+			train_data = augment_data(train_data)
+		all_train_data += train_data
+		all_test_data += test_data
+		
+	random.shuffle(all_train_data)
+	random.shuffle(all_test_data)
+
+	return [all_train_data, all_test_data, data_mean, data_stdev]
+
+def get_batches(full_train_data, full_test_data, batch_size):
+	num_full_train_batches = len(full_train_data)//batch_size
+	num_full_test_batches = len(full_test_data)//batch_size
+
+	train_batches = []
+	for i in range(num_full_train_batches):
+		batch_data = full_train_data[i*batch_size:i*batch_size + batch_size]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		train_batches.append([batch_observations, batch_labels])
+	if len(full_train_data) % batch_size != 0:
+		batch_data = full_train_data[num_full_train_batches*batch_size:]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		train_batches.append([batch_observations, batch_labels])
+
+	test_batches = []
+	for i in range(num_full_test_batches):
+		batch_data = full_test_data[i*batch_size:i*batch_size + batch_size]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		test_batches.append([batch_observations, batch_labels])
+	if len(full_test_data) % batch_size != 0:
+		batch_data = full_test_data[num_full_test_batches*batch_size:]
+		batch_observations = torch.stack([torch.from_numpy(data[0]) for data in batch_data])
+		batch_labels = torch.stack([torch.tensor(data[1]) for data in batch_data])
+		test_batches.append([batch_observations, batch_labels])
+
+	return [train_batches, test_batches, len(full_train_data), len(full_test_data)]
