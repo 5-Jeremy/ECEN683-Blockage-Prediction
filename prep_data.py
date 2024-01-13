@@ -5,6 +5,12 @@ import re
 import random
 
 ############################################## HELPER FUNCTIONS ##############################################
+# Used for generating compact file names
+def boolean_to_letter(boolean):
+	if boolean:
+		return 'T'
+	else:
+		return 'F'
 # This function returns the index number of a mmWave sample file
 def get_file_num(filename):
 		return int(re.findall(r'\d+', filename)[0])
