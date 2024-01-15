@@ -5,5 +5,4 @@ The use of a convolutional neural network (CNN) or a recurrent neural network (R
 
 For a complete presentation of the project, see [this video](https://www.youtube.com/watch?v=uh5NG3WydI0).
 
-To replicate my results or experiment with other settings, you only need to use the file train_and_test.ipynb. The file prep_data.py contains functions used to load and preprocess the data.
-
+Before you can use the file train_and_test.ipynb to replicate my results or experiment with the settings, you need to download scenarios 17 through 21 from the DeepSense 6G dataset [here](https://www.deepsense6g.net/scenario-17-22/). The files need to be extracted and placed within the same directory as train_and_test.ipynb and prep_data.py. I recommend deleting all of the images in camera_data folder because they take up a lot of space and are not used by this model.
